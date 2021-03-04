@@ -1,11 +1,11 @@
 streamlit==0.72.0
-pandas==1.1.0
+pandas==1.1.4
 numpy
-tensorflow==2.4.0
+tensorflow==2.4.1
 matplotlib
-plotly==3.0.0
+plotly==4.13.0
 jinja2==2.11.2
 tensorflow_probability==0.12.1
 tfcausalimpact==0.0.3
-Pillow==8.1.1
+Pillow==8.0.1
 
