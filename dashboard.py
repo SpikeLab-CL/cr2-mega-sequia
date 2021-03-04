@@ -525,17 +525,7 @@ def max_width_(width=1000):
         unsafe_allow_html=True,
     )
 
-def plot_logo_spike():
-    st.sidebar.markdown(
-        "<br>"
-        '<div style="text-align: center;">'
-        '<a href="http://www.spikelab.xyz/"> '
-        '<img src="https://raw.githubusercontent.com/SpikeLab-CL/calidad_aire_2050_cr2/master/logo/logo_con_caption.png" width=150>'
-        " </img>"
-        "</a> </div>",
-        unsafe_allow_html=True,
-    )
-    
+
 def link_libreria():
     link_libreria = (
     "https://github.com/WillianFuks/tfcausalimpact"
