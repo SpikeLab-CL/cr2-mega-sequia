@@ -1,1 +1,0 @@
-{"alpha": 0.1, "beg_pre_period": "2020-01-30", "end_pre_period": "2020-06-30", "beg_eval_period": "2020-07-19", "end_eval_period": "2020-12-28", "selected_x_vars": ["x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10", "x11", "x12", "pre_period_flag"], "y_var": "y", "time_var": "date", "experiment": "cat=08424  YOGURT--COMPACTO"}

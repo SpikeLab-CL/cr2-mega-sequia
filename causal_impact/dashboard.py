@@ -113,7 +113,7 @@ def main():
         ci.plot()
         st.pyplot()
 
-        efecto_acumulado_total = results['post_cum_effects'].values[-1]
+        efecto_acumulado_total = results['post_cum_effects_means'].values[-1]
         valor_promedio = df_toci['y'].mean()
         porcentaje = 100*efecto_acumulado_total/valor_promedio
         estadisticos(efecto_acumulado_total, porcentaje)
@@ -171,9 +171,9 @@ def estadisticos(platita, platita_relativa):
 
 
 
-#@st.cache
+@st.cache
 def load_dataframe() -> pd.DataFrame:
-    #df = pd.read_csv("data/datos_pib.csv")
+    df = pd.read_csv("data/datos_pib.csv")
     df.columns = [m.replace(' ','_') for m in df.columns]
     mapa_nombres = {k : k.replace('PIB_','') for k in df.columns}
     df.rename(columns=mapa_nombres, inplace=True)
@@ -329,14 +329,14 @@ class myCausalImpact(CausalImpact):
         return fig, fig.axes  # type: ignore
 
 
-def send_parameters_to_r(file_name: str, parameters: dict, selected_experiment: str) -> None:
-    """
-    Collects relevant parameters and sends them to r as a json
-    """
-    parameters["experiment"] = selected_experiment
+# def send_parameters_to_r(file_name: str, parameters: dict, selected_experiment: str) -> None:
+#     """
+#     Collects relevant parameters and sends them to r as a json
+#     """
+#     parameters["experiment"] = selected_experiment
 
-    with open(file_name, "w") as outfile:
-        json.dump(parameters, outfile)
+#     with open(file_name, "w") as outfile:
+#         json.dump(parameters, outfile)
 
 
 def plotly_time_series(df, time_var, vars_to_plot, beg_pre_period, end_pre_period, beg_eval_period, end_eval_period):
@@ -423,18 +423,18 @@ def plotly_time_series(df, time_var, vars_to_plot, beg_pre_period, end_pre_perio
     texto(' ')
     #return fig
 
-#Not sure if this speeds up anything
-@st.cache(hash_funcs={myCausalImpact: id})
-def estimate_model(df: pd.DataFrame, y_var_name: str, x_vars: list,
-                 beg_pre_period, end_pre_period, beg_eval_period,
-                   end_eval_period) -> myCausalImpact:
-    st.write("caching didn't work")
-    pre_period = [beg_pre_period, end_pre_period]
-    eval_period = [beg_eval_period, end_eval_period]
-    selected_x_vars_plus_target = [y_var_name] + x_vars
-    ci = myCausalImpact(
-        df[selected_x_vars_plus_target], pre_period, eval_period)
-    return ci
+# #Not sure if this speeds up anything
+# @st.cache(hash_funcs={myCausalImpact: id})
+# def estimate_model(df: pd.DataFrame, y_var_name: str, x_vars: list,
+#                  beg_pre_period, end_pre_period, beg_eval_period,
+#                    end_eval_period) -> myCausalImpact:
+#     st.write("caching didn't work")
+#     pre_period = [beg_pre_period, end_pre_period]
+#     eval_period = [beg_eval_period, end_eval_period]
+#     selected_x_vars_plus_target = [y_var_name] + x_vars
+#     ci = myCausalImpact(
+#         df[selected_x_vars_plus_target], pre_period, eval_period)
+#     return ci
 
 
 def get_n_most_important_vars(trained_c_impact: myCausalImpact, top_n: int):
@@ -544,6 +544,7 @@ def plot_statistics(data,
 
     st.plotly_chart(fig)
 
+    
 def plot_two_series(df: pd.DataFrame,
                     index_col: str = 'Periodo',
                     first_serie: str = 'response',
@@ -722,7 +723,7 @@ def sidebar(df_experiment : pd.DataFrame,
     beg_pre_period, end_pre_period = st.sidebar.slider('', min_date, last_date, 
                                                        value=(min_date,
                                                        df_experiment.loc[mid_point + 20, time_var].date()),
-                                                      key='training_period')
+                                                       key='training_period')
 
     st.sidebar.markdown("### Beginning and end evaluation period")
     beg_eval_period, end_eval_period = st.sidebar.slider('',
