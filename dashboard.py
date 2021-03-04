@@ -83,7 +83,7 @@ def main():
                   )
         
         find_correlations(df_experiment, time_var, y_var, parameters['end_pre_period'])
-        
+        find_mutual_info(df_experiment, time_var, y_var, parameters['end_pre_period'])
 
         texto(' ')
 
@@ -100,23 +100,23 @@ def main():
         mapa_nombres[y_var]= 'y'
         df_toci = df_experiment[[time_var, y_var] + parameters['selected_x_vars']].set_index(time_var).copy()
         df_toci.rename(columns=mapa_nombres, inplace=True)
-
-        ci = CausalImpact(df_toci, pre_period, post_period)
-        results = ci.inferences.copy()
-        results.reset_index(inplace=True)
-        results.rename(columns={'index': time_var}, inplace=True)
+        if st.checkbox('Run Causal Impact', value=False):
+            ci = CausalImpact(df_toci, pre_period, post_period)
+            results = ci.inferences.copy()
+            results.reset_index(inplace=True)
+            results.rename(columns={'index': time_var}, inplace=True)
             
 
-        print_column_description(results, 
-                                 time_var,
-                                 min_date=parameters["beg_eval_period"])
-        ci.plot()
-        st.pyplot()
+            print_column_description(results, 
+                                     time_var,
+                                     min_date=parameters["beg_eval_period"])
+            ci.plot()
+            st.pyplot()
 
-        efecto_acumulado_total = results['post_cum_effects_means'].values[-1]
-        valor_promedio = df_toci['y'].mean()
-        porcentaje = 100*efecto_acumulado_total/valor_promedio
-        estadisticos(efecto_acumulado_total, porcentaje)
+            efecto_acumulado_total = results['post_cum_effects_means'].values[-1]
+            valor_promedio = df_toci['y'].mean()
+            porcentaje = 100*efecto_acumulado_total/valor_promedio
+            estadisticos(efecto_acumulado_total, porcentaje)
 
 
                 
@@ -199,6 +199,24 @@ def get_statistics(df, time_var: str, min_date: str):
     
     st.write('jejeje')
 
+
+from sklearn.feature_selection import mutual_info_regression
+def find_mutual_info(df, time_var, y_var, end_training_period):
+    texto(' ')
+    st.markdown('---')
+    texto('Análisis de las información mutua entre variables', 17)
+
+    df_mutualinfo = df.query(f'{time_var} <= "{end_training_period}"')
+
+    df_mutualinfo.drop(columns=[m for m in df.columns if 'scaled' in m], inplace=True)
+    st.write(df_mutualinfo)
+    informacion_mutua = mutual_info_regression(df_mutualinfo[[m for m in df_mutualinfo.columns if time_var not in m]].values, 
+                                            df_mutualinfo[y_var].values)
+#     new_var_name =  f'correlación absoluta con {y_var}'
+#     correlaciones_absolutas.rename(columns={y_var: new_var_name}, inplace=True)
+#     st.dataframe(correlaciones_absolutas.sort_values(new_var_name, ascending=False)[1:][new_var_name])#[y_var])
+    st.write(informacion_mutua)
+    
     
 def find_correlations(df, time_var, y_var, end_training_period):
     texto(' ')
