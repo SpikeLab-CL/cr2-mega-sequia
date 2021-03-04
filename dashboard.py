@@ -36,14 +36,15 @@ def main():
     
     
     st.title("Mega sequía: midiendo el impacto económico :volcano: :sun_with_face:")
-    texto("""Esta aplicación ayuda a explorar los resultados generados por paquetes de la librería Causal Impact para medir el impacto económico de la mega sequía usando como control series no afectadas""",
+    texto("""Esta aplicación ayuda a explorar los resultados de la librería Causal Impact para medir el impacto económico generado por la mega sequía que ocurre en Chile. Estos resultados son generados usando datos del banco central, donde usamos como control series económicas no afectadas por la sequía que ayudan a reconstruir un escenario contrafactual donde respondemos: qué hubiese pasado en la economía si no hubiese habido mega sequía.""",
    nfont=17)
     disclaimer()
 
     link_libreria()
-    st.markdown('## Datos del PIB')
-    texto('Usamos los datos mensuales del PIB obtenidos desde la página del banco central, con datos desde 2013.')
-    st.markdown('### Choose the following parameters')
+    st.markdown('## Los datos provienen del  Producto Interno Bruto de Chile entre los años 2013 y 2019')
+    texto('Contamos con series mensuales del PIB obtenidos desde la página del banco central')
+    
+    st.markdown('### Choose Causal Impact parameters')
 
     chosen_df = load_dataframe()
     col1, col2 = st.beta_columns(2)
@@ -87,11 +88,16 @@ def main():
 
         texto(' ')
 
-    
     with st.beta_expander("Estimate Causal Impact model"):
         
-        pre_period = [parameters['beg_pre_period'], parameters['end_pre_period']]
-        post_period = [parameters['beg_eval_period'], parameters['end_eval_period']]
+        beg_pre_period = parameters['beg_pre_period'].split('-')[0] + parameters['beg_pre_period'].split('-')[1] + '01'
+        end_pre_period = parameters['end_pre_period'].split('-')[0] + parameters['end_pre_period'].split('-')[1] + '01'
+        
+        beg_eval_period = parameters['beg_eval_period'].split('-')[0] + parameters['beg_eval_period'].split('-')[1] + '01'
+        end_eval_period = parameters['end_eval_period'].split('-')[0] + parameters['end_eval_period'].split('-')[1] + '01'
+        
+        pre_period = [beg_pre_period, end_pre_period]
+        post_period = [beg_eval_period, end_eval_period]
 
         df_experiment[time_var] = df_experiment[time_var].dt.strftime('%m/%d/%Y')
         df_experiment[y_var] = df_experiment[y_var].astype(float)
@@ -232,129 +238,7 @@ def find_correlations(df, time_var, y_var, end_training_period):
     
 
 
-class myCausalImpact(CausalImpact):
-    def __init__(self, data, pre_period, post_period, model=None, alpha=0.05, **kwargs):
-        super(myCausalImpact, self).__init__(data, pre_period,
-                                             post_period, model, alpha, **kwargs)
-        #checked_input = self._process_input_data(
-        #    data, pre_period, post_period, model, alpha, **kwargs
-        #)
 
-
-    def plot(self, panels=['original', 'pointwise', 'cumulative'], figsize=(15, 12)):
-        """Plots inferences results related to causal impact analysis.
-            Args
-            ----
-            panels: list.
-                Indicates which plot should be considered in the graphics.
-            figsize: tuple.
-                Changes the size of the graphics plotted.
-            Raises
-            ------
-            RuntimeError: if inferences were not computed yet.
-            """
-        
-        fig = plt.figure(figsize=figsize)
-        if self.summary_data is None:
-            raise RuntimeError(
-                'Please first run inferences before plotting results')
-
-        valid_panels = ['original', 'pointwise', 'cumulative']
-        for panel in panels:
-            if panel not in valid_panels:
-                raise ValueError(
-                    '"{}" is not a valid panel. Valid panels are: {}.'.format(
-                        panel, ', '.join(['"{}"'.format(e)
-                                            for e in valid_panels])
-                    )
-                )
-
-        # First points can be noisy due approximation techniques used in the likelihood
-        # optimizaion process. We remove those points from the plots.
-        llb = self.trained_model.filter_results.loglikelihood_burn #type: ignore
-        inferences = self.inferences.iloc[llb:]
-
-        intervention_idx = inferences.index.get_loc(self.post_period[0])
-        n_panels = len(panels)
-        ax = plt.subplot(n_panels, 1, 1)
-        idx = 1
-
-        if 'original' in panels:
-            ax.plot(pd.concat([self.pre_data.iloc[llb:, 0], self.post_data.iloc[:, 0]]),  # type: ignore
-                    'k', label='y') 
-            ax.plot(inferences['preds'], 'b--',
-                    label='Predicted')  # type: ignore
-            ax.axvline(
-                inferences.index[intervention_idx - 1], c='k', linestyle='--')
-            ax.fill_between(
-                self.pre_data.index[llb:].union(self.post_data.index),
-                inferences['preds_lower'],
-                inferences['preds_upper'],
-                facecolor='blue',
-                interpolate=True,
-                alpha=0.25
-            )
-            ax.grid(True, linestyle='--')
-            ax.legend()
-            if idx != n_panels:
-                plt.setp(ax.get_xticklabels(), visible=False)
-            idx += 1
-
-        if 'pointwise' in panels:
-            ax = plt.subplot(n_panels, 1, idx, sharex=ax)
-            ax.plot(inferences['point_effects'], 'b--', label='Point Effects')
-            ax.axvline(
-                inferences.index[intervention_idx - 1], c='k', linestyle='--')
-            ax.fill_between(
-                inferences['point_effects'].index,
-                inferences['point_effects_lower'],
-                inferences['point_effects_upper'],
-                facecolor='blue',
-                interpolate=True,
-                alpha=0.25
-            )
-            ax.axhline(y=0, color='k', linestyle='--')
-            ax.grid(True, linestyle='--')
-            ax.legend()
-            if idx != n_panels:
-                plt.setp(ax.get_xticklabels(), visible=False)  # type: ignore
-            idx += 1
-
-        if 'cumulative' in panels:
-            ax = plt.subplot(n_panels, 1, idx, sharex=ax)
-            ax.plot(inferences['post_cum_effects'], 'b--',
-                    label='Cumulative Effect')
-            ax.axvline(
-                inferences.index[intervention_idx - 1], c='k', linestyle='--')
-            ax.fill_between(
-                inferences['post_cum_effects'].index,
-                inferences['post_cum_effects_lower'],
-                inferences['post_cum_effects_upper'],
-                facecolor='blue',
-                interpolate=True,
-                alpha=0.25
-            )
-            ax.grid(True, linestyle='--')  # type: ignore
-            ax.axhline(y=0, color='k', linestyle='--')  # type: ignore
-            ax.legend()  # type: ignore
-
-        # Alert if points were removed due to loglikelihood burning data
-        if llb > 0:
-            text = ('Note: The first {} observations were removed due to approximate '
-                    'diffuse initialization.'.format(llb))
-            fig.text(0.1, 0.01, text, fontsize='large')  # type: ignore
-
-        return fig, fig.axes  # type: ignore
-
-
-# def send_parameters_to_r(file_name: str, parameters: dict, selected_experiment: str) -> None:
-#     """
-#     Collects relevant parameters and sends them to r as a json
-#     """
-#     parameters["experiment"] = selected_experiment
-
-#     with open(file_name, "w") as outfile:
-#         json.dump(parameters, outfile)
 
 
 def plotly_time_series(df, time_var, vars_to_plot, beg_pre_period, end_pre_period, beg_eval_period, end_eval_period):
@@ -441,37 +325,26 @@ def plotly_time_series(df, time_var, vars_to_plot, beg_pre_period, end_pre_perio
     texto(' ')
     #return fig
 
-# #Not sure if this speeds up anything
-# @st.cache(hash_funcs={myCausalImpact: id})
-# def estimate_model(df: pd.DataFrame, y_var_name: str, x_vars: list,
-#                  beg_pre_period, end_pre_period, beg_eval_period,
-#                    end_eval_period) -> myCausalImpact:
-#     st.write("caching didn't work")
-#     pre_period = [beg_pre_period, end_pre_period]
-#     eval_period = [beg_eval_period, end_eval_period]
-#     selected_x_vars_plus_target = [y_var_name] + x_vars
-#     ci = myCausalImpact(
-#         df[selected_x_vars_plus_target], pre_period, eval_period)
-#     return ci
 
 
-def get_n_most_important_vars(trained_c_impact: myCausalImpact, top_n: int):
-    """
-    Get the names of the n most important variables in the training of the causal impact
-    model.
-    Most important is given by the absolute value of the coefficient
-    (I THINK that data is standardized beforehand so scale of X shouldn't matter)
-    """
-    params: pd.Series = trained_c_impact.trained_model.params #type: ignore
-    contains_beta = params.index.str.contains("beta")
-    does_not_contain_t = params.index != "beta.t"
-    params = params[contains_beta & does_not_contain_t]
-    params = np.abs(params)
 
-    top_n_vars = params.sort_values(ascending=False).index.values[:top_n]
+# def get_n_most_important_vars(trained_c_impact: myCausalImpact, top_n: int):
+#     """
+#     Get the names of the n most important variables in the training of the causal impact
+#     model.
+#     Most important is given by the absolute value of the coefficient
+#     (I THINK that data is standardized beforehand so scale of X shouldn't matter)
+#     """
+#     params: pd.Series = trained_c_impact.trained_model.params #type: ignore
+#     contains_beta = params.index.str.contains("beta")
+#     does_not_contain_t = params.index != "beta.t"
+#     params = params[contains_beta & does_not_contain_t]
+#     params = np.abs(params)
 
-    top_n_vars = [var.split(".")[1] for var in top_n_vars]
-    return top_n_vars
+#     top_n_vars = params.sort_values(ascending=False).index.values[:top_n]
+
+#     top_n_vars = [var.split(".")[1] for var in top_n_vars]
+#     return top_n_vars
 
 
 def plot_top_n_relevant_vars(df, time_var, y_and_top_vars,
@@ -662,7 +535,7 @@ def plot_logo_spike():
     
 def link_libreria():
     link_libreria = (
-    "https://google.github.io/CausalImpact/CausalImpact.html"
+    "https://github.com/WillianFuks/tfcausalimpact"
 )
     st.markdown(
         body=generate_html(
