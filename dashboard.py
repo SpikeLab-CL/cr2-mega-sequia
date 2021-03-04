@@ -34,15 +34,14 @@ tfd = tfp.distributions
 def main():
     max_width_(width=1200)
     
-    
+    image = Image.open('causal_impact_explainer_logo.png')
     st.title("Mega sequía: midiendo el impacto económico :volcano: :sun_with_face:")
     texto("""Esta aplicación ayuda a explorar los resultados de la librería Causal Impact para medir el impacto económico generado por la mega sequía que ocurre en Chile. Estos resultados son generados usando datos del banco central, donde usamos como control series económicas no afectadas por la sequía que ayudan a reconstruir un escenario contrafactual donde respondemos: qué hubiese pasado en la economía si no hubiese habido mega sequía.""",
    nfont=17)
     disclaimer()
 
     link_libreria()
-    st.markdown('## Los datos provienen del  Producto Interno Bruto de Chile entre los años 2013 y 2019')
-    texto('Contamos con series mensuales del PIB obtenidos desde la página del banco central')
+    st.markdown('## Los datos provienen del  Producto Interno Bruto de Chile entre los años 2013-19')
     
     st.markdown('### Choose Causal Impact parameters')
 
@@ -67,7 +66,52 @@ def main():
     df_experiment.sort_values(time_var, inplace=True)
     df_experiment.index = range(len(df_experiment))
 
-    parameters = sidebar(df_experiment, chosen_df, time_var, y_var)
+        
+    st.sidebar.image(image, caption='', use_column_width=True)
+
+    st.sidebar.markdown("#### Select the control variables")
+
+    x_vars = [col for col in chosen_df.columns if col != y_var and col != time_var and col!='group']
+    selected_x_vars = st.sidebar.multiselect("Las variables de control no deben haber sido afectadas por la sequía", x_vars,
+                        default=x_vars)
+
+    st.sidebar.markdown("## Experiment setting")
+
+#     alpha = st.sidebar.number_input("Significance level", 0.01, 0.5, value=0.05, 
+#                                     step=0.01, 
+#                                     key='significance_level')
+
+
+    min_date = df_experiment[time_var].min().date()
+    last_date = df_experiment[time_var].max().date()
+    mid_point = int(len(df_experiment) / 2)
+
+    st.sidebar.markdown("### Beginning and end pre period")
+
+    beg_pre_period, end_pre_period = st.sidebar.slider('', min_date, last_date, 
+                                                       value=(min_date,
+                                                       df_experiment.loc[mid_point + 20, time_var].date()),
+                                                       key='training_period')
+
+    st.sidebar.markdown("### Beginning and end evaluation period")
+    beg_eval_period, end_eval_period = st.sidebar.slider('',
+                                                         end_pre_period, last_date,
+                                                         value=(df_experiment.loc[mid_point + 26, time_var].date(),
+                                                         last_date),
+                                                         key='evaluation_period')
+    
+    strftime_format="%Y-%m-%d"
+    parameters = {
+                  #"alpha": alpha, 
+                  "beg_pre_period": beg_pre_period.strftime(strftime_format),
+                  "end_pre_period": end_pre_period.strftime(strftime_format),
+                  "beg_eval_period": beg_eval_period.strftime(strftime_format),
+                  "end_eval_period": end_eval_period.strftime(strftime_format),
+                  "selected_x_vars": selected_x_vars,
+                  "y_var": y_var,
+                  "time_var": time_var,
+                 }
+
     with st.beta_expander('Show dataframe'):
         st.write(df_experiment.head(5))
         
@@ -188,23 +232,6 @@ def load_dataframe() -> pd.DataFrame:
     return df
 
 
-def plot_vars(df_experiment, vars_to_plot, time_var, beg_pre_period=None, end_pre_period=None,
-                beg_eval_period=None, end_eval_period=None):
-
-    
-    for var in vars_to_plot:
-        df_experiment[f'{var}_scaled'] = (df_experiment[var] - df_experiment[var].mean())/df_experiment[var].std()
-
-    scalled = st.checkbox('Plot scaled variables', value=False)
-    if scalled:
-        vars_to_plot = [f'{var}_scaled' for var in vars_to_plot]
-    plotly_time_series(df_experiment, time_var, vars_to_plot, beg_pre_period, end_pre_period, beg_eval_period, end_eval_period)
-    
-
-def get_statistics(df, time_var: str, min_date: str):
-    
-    st.write('jejeje')
-
 
 from sklearn.feature_selection import mutual_info_regression
 def find_mutual_info(df, time_var, y_var, end_training_period):
@@ -237,8 +264,17 @@ def find_correlations(df, time_var, y_var, end_training_period):
     st.dataframe(correlaciones_absolutas.sort_values(new_var_name, ascending=False)[1:][new_var_name])#[y_var])
     
 
+def plot_vars(df_experiment, vars_to_plot, time_var, beg_pre_period=None, end_pre_period=None,
+                beg_eval_period=None, end_eval_period=None):
 
+    
+    for var in vars_to_plot:
+        df_experiment[f'{var}_scaled'] = (df_experiment[var] - df_experiment[var].mean())/df_experiment[var].std()
 
+    scalled = st.checkbox('Plot scaled variables', value=False)
+    if scalled:
+        vars_to_plot = [f'{var}_scaled' for var in vars_to_plot]
+    plotly_time_series(df_experiment, time_var, vars_to_plot, beg_pre_period, end_pre_period, beg_eval_period, end_eval_period)
 
 
 def plotly_time_series(df, time_var, vars_to_plot, beg_pre_period, end_pre_period, beg_eval_period, end_eval_period):
@@ -325,39 +361,6 @@ def plotly_time_series(df, time_var, vars_to_plot, beg_pre_period, end_pre_perio
     texto(' ')
     #return fig
 
-
-
-
-# def get_n_most_important_vars(trained_c_impact: myCausalImpact, top_n: int):
-#     """
-#     Get the names of the n most important variables in the training of the causal impact
-#     model.
-#     Most important is given by the absolute value of the coefficient
-#     (I THINK that data is standardized beforehand so scale of X shouldn't matter)
-#     """
-#     params: pd.Series = trained_c_impact.trained_model.params #type: ignore
-#     contains_beta = params.index.str.contains("beta")
-#     does_not_contain_t = params.index != "beta.t"
-#     params = params[contains_beta & does_not_contain_t]
-#     params = np.abs(params)
-
-#     top_n_vars = params.sort_values(ascending=False).index.values[:top_n]
-
-#     top_n_vars = [var.split(".")[1] for var in top_n_vars]
-#     return top_n_vars
-
-
-def plot_top_n_relevant_vars(df, time_var, y_and_top_vars,
-                            beg_eval_period):
-    n_total_vars = len(y_and_top_vars)
-    fig, axes = plt.subplots(n_total_vars, 1,
-                             figsize=(6, 1.5*n_total_vars))
-    for ax, var_name in zip(axes, y_and_top_vars):  # type: ignore
-        ax.plot(df[time_var], df[var_name])
-        ax.set_title(var_name)
-        ax.axvline(beg_eval_period, c='k', linestyle='--')
-
-    return fig, axes
 
 
 def plot_statistics(data, 
@@ -565,76 +568,18 @@ def print_column_description(df, time_var, min_date):
 
     col1, col2 = st.beta_columns(2)
     with col1:
-        texto('<b> post_cum_y </b>: Observed response cumulative since evaluation period.', nfont=11, color='gray')
-        texto('<b> preds </b>: Model predictions.', nfont=11, color='gray')
-        texto('<b> post_preds </b>: Model predictions over post intervention period.', nfont=11, color='gray')
-        texto('<b> post_preds_lower </b>: Lower limit of post intervention predictions.', nfont=11, color='gray')
-        texto('<b> post_preds_upper </b>: Upper limit of post intervention predictions.', nfont=11, color='gray')
-        texto('<b> preds_lower </b>: Lower limit of predictions.', nfont=11, color='gray')
-        texto('<b> preds_upper </b>: Upper limit of predictions.', nfont=11, color='gray')
-        texto('<b> post_cum_pred </b>: Cumulative post intervention predictions.', nfont=11, color='gray')
+        texto('<b> complete_preds </b>: Todas las prediccciones.', nfont=11, color='gray')
+        texto('<b> post_preds </b>: Predicciones post intervención.', nfont=11, color='gray')
+        texto('<b> post_cum_y </b>: Variable observada acumulada post intervención.', nfont=11, color='gray')
+        texto('<b> post_cum_preds </b>: Predicciones acumuladas post intervención.', nfont=11, color='gray')
     with col2:
-        texto('<b> post_cum_pred_lower </b>: Lower limit of cumulative post intervention predictions.', nfont=11, color='gray')
-        texto('<b> post_cum_pred_upper </b>: Upper limit of cumulative post intervention predictions', nfont=11, color='gray')
-        texto('<b> point_effects </b>: Effect of the intervention (difference between predictions and observed signal).', nfont=11, color='gray')
-        texto('<b> point_effects_lower </b>: Lower limit of effect of the intervention.', nfont=11, color='gray')
-        texto('<b> point_effects_upper </b>: Upper limit of effect of the intervention.', nfont=11, color='gray')
-        texto('<b> post_cum_effects </b>: Cumulative effects on the post intervention predictions', nfont=11, color='gray')
-        texto('<b> post_cum_effects_upper </b>: Upper limit of cumulative effects on the post intervention predictions', nfont=11, color='gray')
-        texto('<b> post_cum_effects_Lower </b>: Lower limit Cumulative effects on the post intervention predictions', nfont=11, color='gray')
+        texto('<b> point_effect </b>: Efecto puntual de la intervención.', nfont=11, color='gray')
+        texto('<b> post_cum_effects </b>: Efecto acumulado post intervención.', nfont=11, color='gray')
+        texto('<b> sufijo _lower </b>: Límite inferior del intervalo de la variable.', nfont=11, color='gray')
+        texto('<b> sufijo _upper </b>: Límite superior del intervalo de la variable.', nfont=11, color='gray')
 
-        
-def sidebar(df_experiment : pd.DataFrame, 
-            chosen_df : pd.DataFrame,
-            time_var,
-            y_var):
-
-    image = Image.open('causal_impact_explainer_logo.png')
-    st.sidebar.image(image, caption='', use_column_width=True)
-
-    st.sidebar.markdown("#### Select the variables you will use as control")
-
-    x_vars = [col for col in chosen_df.columns if col != y_var and col != time_var and col!='group']
-    selected_x_vars = st.sidebar.multiselect("Better less than more", x_vars,
-                        default=x_vars)
-
-    st.sidebar.markdown("## Experiment setting")
-
-    alpha = st.sidebar.number_input("Significance level", 0.01, 0.5, value=0.05, 
-                                    step=0.01, 
-                                    key='significance_level')
-
-
-    min_date = df_experiment[time_var].min().date()
-    last_date = df_experiment[time_var].max().date()
-    mid_point = int(len(df_experiment) / 2)
-
-    st.sidebar.markdown("### Beginning and end pre period")
-
-    beg_pre_period, end_pre_period = st.sidebar.slider('', min_date, last_date, 
-                                                       value=(min_date,
-                                                       df_experiment.loc[mid_point + 20, time_var].date()),
-                                                       key='training_period')
-
-    st.sidebar.markdown("### Beginning and end evaluation period")
-    beg_eval_period, end_eval_period = st.sidebar.slider('',
-                                                         end_pre_period, last_date,
-                                                         value=(df_experiment.loc[mid_point + 26, time_var].date(),
-                                                         last_date),
-                                                         key='evaluation_period')
     
-    strftime_format="%Y-%m-%d"
-    parameters = {"alpha": alpha, 
-                  "beg_pre_period": beg_pre_period.strftime(strftime_format),
-                  "end_pre_period": end_pre_period.strftime(strftime_format),
-                  "beg_eval_period": beg_eval_period.strftime(strftime_format),
-                  "end_eval_period": end_eval_period.strftime(strftime_format),
-                  "selected_x_vars": selected_x_vars,
-                  "y_var": y_var,
-                  "time_var": time_var,
-                 }
 
-    return parameters
 
 
 main()
