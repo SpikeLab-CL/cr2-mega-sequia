@@ -14,6 +14,8 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 import matplotlib.pyplot as plt
 from causalimpact import CausalImpact
+from dtaidistance import dtw
+
 st.set_option('deprecation.showPyplotGlobalUse', False)
 
 COLOR_MAP = {"default": "#262730", "pink": "#E22A5B"}
@@ -127,8 +129,11 @@ def main():
                   end_eval_period=parameters['end_eval_period'],
                   )
         
-        find_correlations(df_experiment, time_var, y_var, parameters['end_pre_period'])
-        find_mutual_info(df_experiment, time_var, y_var, parameters['end_pre_period'])
+        col_corr, col_mutual = st.beta_columns(2)
+        with col_corr:
+            find_mutual_info(df_experiment, time_var, y_var, parameters['end_pre_period'])            
+        with col_mutual:
+            find_dinamic_time_warp(df_experiment, time_var, y_var, parameters['end_pre_period'])
 
         texto(' ')
 
@@ -232,34 +237,50 @@ def load_dataframe() -> pd.DataFrame:
     return df
 
 
+def find_dinamic_time_warp(df, time_var, y_var, end_training_period):
+    
+    texto(' ')
+    st.markdown('---')
+    texto(f'Dinamic time warp entre variables con {y_var}', 17)
+    texto('Sugerencia: series con mayor distancia son diferentes entre sí.', 12, 'grey')
+    df_filtered = df.query(f'{time_var} <= "{end_training_period}"')
+    new_frame = pd.DataFrame(index=[m for m in df.columns if m != time_var and 'scaled' not in m])
+    for col in df.columns:
+        if 'scaled' not in col and col != time_var:
+            new_frame.loc[col, 'dtw distance'] = dtw.distance(df_filtered[y_var].values, 
+                                                           df_filtered[col].values)
+    new_frame.sort_values(by='dtw distance', ascending=False, inplace=True)
+
+    st.write(new_frame)
+
 
 from sklearn.feature_selection import mutual_info_regression
 def find_mutual_info(df, time_var, y_var, end_training_period):
     texto(' ')
     st.markdown('---')
-    texto('Análisis de las información mutua entre variables', 17)
+    texto(f'Información mutua entre variables con {y_var}', 17)
+    texto('Sugerencia: series con información mutua igual a 0 son independientes.', 12, 'grey')
 
     df_mutualinfo = df.query(f'{time_var} <= "{end_training_period}"')
 
     df_mutualinfo.drop(columns=[m for m in df.columns if 'scaled' in m], inplace=True)
-    st.write(df_mutualinfo)
     informacion_mutua = mutual_info_regression(df_mutualinfo[[m for m in df_mutualinfo.columns if time_var not in m]].values, 
                                             df_mutualinfo[y_var].values)
-#     new_var_name =  f'correlación absoluta con {y_var}'
-#     correlaciones_absolutas.rename(columns={y_var: new_var_name}, inplace=True)
-#     st.dataframe(correlaciones_absolutas.sort_values(new_var_name, ascending=False)[1:][new_var_name])#[y_var])
-    st.write(informacion_mutua)
+    new_frame = pd.DataFrame(index = df_mutualinfo[[m for m in df_mutualinfo.columns if time_var not in m]].columns)
+    new_frame[f'mutual info'] = informacion_mutua
+    new_frame.sort_values(by='mutual info', inplace=True)
+    st.write(new_frame)
     
     
 def find_correlations(df, time_var, y_var, end_training_period):
     texto(' ')
     st.markdown('---')
-    texto('Análisis de las correlaciones entre variables', 17)
+    texto(f'Correlaciones entre variables con {y_var}', 17)
     texto('Sugerencia: series con baja correlación pueden introducir ruido o sesgo en los resultados', 12, 'grey')
     df_tocorr = df.query(f'{time_var} <= "{end_training_period}"')
     df_tocorr.drop(columns=[m for m in df.columns if 'scaled' in m], inplace=True)
     correlaciones_absolutas = df_tocorr.corr().abs()
-    new_var_name =  f'correlación absoluta con {y_var}'
+    new_var_name =  f'corr abs'
     correlaciones_absolutas.rename(columns={y_var: new_var_name}, inplace=True)
     st.dataframe(correlaciones_absolutas.sort_values(new_var_name, ascending=False)[1:][new_var_name])#[y_var])
     
