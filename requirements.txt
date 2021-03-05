@@ -10,3 +10,4 @@ tfcausalimpact==0.0.3
 Pillow==8.0.1
 scikit-learn==0.23.2
 scikit-image==0.17.2
+dtaidistance==2.2.5
