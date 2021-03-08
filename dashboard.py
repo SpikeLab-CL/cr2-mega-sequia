@@ -37,7 +37,8 @@ def main():
     max_width_(width=1200)
     
     image = Image.open('causal_impact_explainer_logo.png')
-    st.title("Mega sequía: midiendo el impacto económico :volcano: :sun_with_face:")
+    st.sidebar.image(image, caption='', use_column_width=True)
+    st.title("Mega sequía: midiendo el impacto económico :volcano: :earth_americas:")
     texto("""Esta aplicación ayuda a explorar los resultados de la librería Causal Impact para medir el impacto económico generado por la mega sequía que ocurre en Chile. Estos resultados son generados usando datos del banco central, donde usamos como control series económicas no afectadas por la sequía que ayudan a reconstruir un escenario contrafactual donde respondemos: qué hubiese pasado en la economía si no hubiese habido mega sequía.""",
    nfont=17)
     disclaimer()
@@ -68,12 +69,8 @@ def main():
     df_experiment.sort_values(time_var, inplace=True)
     df_experiment.index = range(len(df_experiment))
 
-        
-    st.sidebar.image(image, caption='', use_column_width=True)
-
     st.sidebar.markdown("#### Select the control variables")
-
-    x_vars = [col for col in chosen_df.columns if col != y_var and col != time_var and col!='group']
+    x_vars = sorted(list([col for col in chosen_df.columns if col != y_var and col != time_var and col!='group']),  key=len)
     selected_x_vars = st.sidebar.multiselect("Las variables de control no deben haber sido afectadas por la sequía", x_vars,
                         default=x_vars)
 
@@ -89,7 +86,6 @@ def main():
     mid_point = int(len(df_experiment) / 2)
 
     st.sidebar.markdown("### Beginning and end pre period")
-
     beg_pre_period, end_pre_period = st.sidebar.slider('', min_date, last_date, 
                                                        value=(min_date,
                                                        df_experiment.loc[mid_point + 20, time_var].date()),
@@ -133,7 +129,7 @@ def main():
         with col_corr:
             find_mutual_info(df_experiment, time_var, y_var, parameters['end_pre_period'])            
         with col_mutual:
-            find_dinamic_time_warp(df_experiment, time_var, y_var, parameters['end_pre_period'])
+            find_dynamic_time_warp(df_experiment, time_var, y_var, parameters['end_pre_period'])
 
         texto(' ')
 
@@ -237,11 +233,11 @@ def load_dataframe() -> pd.DataFrame:
     return df
 
 
-def find_dinamic_time_warp(df, time_var, y_var, end_training_period):
+def find_dynamic_time_warp(df, time_var, y_var, end_training_period):
     
     texto(' ')
     st.markdown('---')
-    texto(f'Dinamic time warp entre variables con {y_var}', 17)
+    texto(f'Dynamic time warp entre variables con {y_var}', 17)
     texto('Sugerencia: series con mayor distancia son diferentes entre sí.', 12, 'grey')
     df_filtered = df.query(f'{time_var} <= "{end_training_period}"')
     new_frame = pd.DataFrame(index=[m for m in df.columns if m != time_var and 'scaled' not in m])
