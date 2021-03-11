@@ -168,9 +168,10 @@ def main():
             efecto_acumulado_total = results['post_cum_effects_means'].values[-1]
             valor_promedio = df_toci['y'].mean()
             porcentaje = 100*efecto_acumulado_total/valor_promedio
-            col1, col2 = st.beta_columns(2)
+            col1, col2 = st.beta_columns([1,2])
             with col1:
-                texto('El efecto acumulado:', 25)
+                texto(' ', 40)
+                texto('      El efecto acumulado:', 25)
             with col2:
                 estadisticos(efecto_acumulado_total, porcentaje)
 
