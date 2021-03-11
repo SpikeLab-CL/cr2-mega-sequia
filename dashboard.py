@@ -172,6 +172,7 @@ def main():
             with col1:
                 texto(' ', 40)
                 texto('      El efecto acumulado:', 25)
+                texto('Corresponde al efecto acumulado desde la intervención hasta el último período en los datos')
             with col2:
                 estadisticos(efecto_acumulado_total, porcentaje)
 
