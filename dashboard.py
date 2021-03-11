@@ -145,7 +145,7 @@ def main():
         mapa_nombres[y_var]= 'y'
         df_toci = df_experiment[[time_var, y_var] + parameters['selected_x_vars']].set_index(time_var).copy()
         df_toci.rename(columns=mapa_nombres, inplace=True)
-        
+        texto('Puede tardar varios segundos', 11)
         if st.checkbox('Run Causal Impact', value=False):
             
             ci = CausalImpact(df_toci, 
@@ -172,7 +172,7 @@ def main():
             with col1:
                 texto(' ', 40)
                 texto('      El efecto acumulado:', 25)
-                texto('Corresponde al efecto acumulado desde la intervención hasta el último período en los datos')
+                texto('Corresponde al efecto acumulado desde la intervención en adelante')
             with col2:
                 estadisticos(efecto_acumulado_total, porcentaje)
 
