@@ -26,12 +26,6 @@ grey = "#87878A"
 
 tfd = tfp.distributions
 
-# from utils import (plotly_time_series, estimate_model,
-#                    get_n_most_important_vars, plot_top_n_relevant_vars,
-#                    plot_statistics, send_parameters_to_r, texto, max_width_,
-#                    link_libreria, disclaimer, print_column_description,
-#                    sidebar, plot_two_series, find_correlations)
-
 
 def main():
     max_width_(width=1200)
@@ -76,9 +70,9 @@ def main():
 
     st.sidebar.markdown("## Experiment setting")
 
-#     alpha = st.sidebar.number_input("Significance level", 0.01, 0.5, value=0.05, 
-#                                     step=0.01, 
-#                                     key='significance_level')
+    alpha = st.sidebar.number_input("Significance level", 0.01, 0.5, value=0.05, 
+                                    step=0.01, 
+                                    key='significance_level')
 
 
     min_date = df_experiment[time_var].min().date()
@@ -100,7 +94,7 @@ def main():
     
     strftime_format="%Y-%m-%d"
     parameters = {
-                  #"alpha": alpha, 
+                  "alpha": alpha, 
                   "beg_pre_period": beg_pre_period.strftime(strftime_format),
                   "end_pre_period": end_pre_period.strftime(strftime_format),
                   "beg_eval_period": beg_eval_period.strftime(strftime_format),
@@ -151,8 +145,15 @@ def main():
         mapa_nombres[y_var]= 'y'
         df_toci = df_experiment[[time_var, y_var] + parameters['selected_x_vars']].set_index(time_var).copy()
         df_toci.rename(columns=mapa_nombres, inplace=True)
+        
         if st.checkbox('Run Causal Impact', value=False):
-            ci = CausalImpact(df_toci, pre_period, post_period)
+            
+            ci = CausalImpact(df_toci, 
+                              pre_period, 
+                              post_period,
+                              alpha=alpha,
+                              model_args={'nseasons': 12})
+            
             results = ci.inferences.copy()
             results.reset_index(inplace=True)
             results.rename(columns={'index': time_var}, inplace=True)
