@@ -218,7 +218,7 @@ def estadisticos(platita, platita_relativa):
         f"<td style='{_cell_style}'> Efecto acumulado relativo </td>"
         "</tr>"
         f"<tr style='border: 2px solid {_border_color}'> "
-        f"<td style='border-right: 2px solid {_border_color}; border-spacing: 10px; {_number_format + 'font-color:red'}' > {int(platita):,}</td> "
+        f"<td style='border-right: 2px solid {_border_color}; border-spacing: 10px; {_number_format + 'font-color:red'} miles de millones' > {int(platita):,}</td> "
         f"<td style='{_number_format + 'color:red'}'> {int(platita_relativa):,} %</td>"
         "</tr>"
         "</table>"
