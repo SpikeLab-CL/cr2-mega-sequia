@@ -49,48 +49,55 @@ def main():
                                chosen_df.columns,
                                index=0,
                                key='time_variable') #date
+        alpha = st.number_input("Significance level", 0.01, 0.5, value=0.05, 
+                                    step=0.01, 
+                                    key='significance_level')
 
 
     with col2:
         y_var = st.selectbox("Choose the outcome variable (y)",
                              chosen_df.columns,
                              index=2,
-                             key='analysis_variable') #sales
+                             key='analysis_variable')
+        
+        df_experiment = chosen_df.copy()
+        df_experiment[time_var] = df_experiment[time_var].apply(pd.to_datetime)
+        df_experiment.sort_values(time_var, inplace=True)
+        df_experiment.index = range(len(df_experiment))
+            
+        min_date = df_experiment[time_var].min().date()
+        last_date = df_experiment[time_var].max().date()
+        mid_point = int(len(df_experiment) / 2)
+        intervention_time = st.slider('Fecha del inicio de la sequía', 
+                                              min_date, 
+                                              last_date, 
+                                              value=df_experiment.loc[mid_point + 20, time_var].date(),
+                                              key='training_period')
+        
+        
+    beg_pre_period, end_pre_period = min_date, intervention_time
+    beg_eval_period, end_eval_period = intervention_time, last_date    
+    beg_eval_period = beg_eval_period + pd.DateOffset(months=1)
 
-    
-    df_experiment = chosen_df.copy()
-    df_experiment[time_var] = df_experiment[time_var].apply(pd.to_datetime)
-    df_experiment.sort_values(time_var, inplace=True)
-    df_experiment.index = range(len(df_experiment))
 
     st.sidebar.markdown("#### Select the control variables")
     x_vars = sorted(list([col for col in chosen_df.columns if col != y_var and col != time_var and col!='group']),  key=len)
     selected_x_vars = st.sidebar.multiselect("Las variables de control no deben haber sido afectadas por la sequía", x_vars,
                         default=x_vars)
 
-    st.sidebar.markdown("## Experiment setting")
 
-    alpha = st.sidebar.number_input("Significance level", 0.01, 0.5, value=0.05, 
-                                    step=0.01, 
-                                    key='significance_level')
+#     st.sidebar.markdown("### Beginning and end pre period")
+#     beg_pre_period, end_pre_period = st.sidebar.slider('', min_date, last_date, 
+#                                                        value=(min_date,
+#                                                        df_experiment.loc[mid_point + 20, time_var].date()),
+#                                                        key='training_period')
 
-
-    min_date = df_experiment[time_var].min().date()
-    last_date = df_experiment[time_var].max().date()
-    mid_point = int(len(df_experiment) / 2)
-
-    st.sidebar.markdown("### Beginning and end pre period")
-    beg_pre_period, end_pre_period = st.sidebar.slider('', min_date, last_date, 
-                                                       value=(min_date,
-                                                       df_experiment.loc[mid_point + 20, time_var].date()),
-                                                       key='training_period')
-
-    st.sidebar.markdown("### Beginning and end evaluation period")
-    beg_eval_period, end_eval_period = st.sidebar.slider('',
-                                                         end_pre_period, last_date,
-                                                         value=(df_experiment.loc[mid_point + 26, time_var].date(),
-                                                         last_date),
-                                                         key='evaluation_period')
+#     st.sidebar.markdown("### Beginning and end evaluation period")
+#     beg_eval_period, end_eval_period = st.sidebar.slider('',
+#                                                          end_pre_period, last_date,
+#                                                          value=(df_experiment.loc[mid_point + 26, time_var].date(),
+#                                                          last_date),
+#                                                          key='evaluation_period')
     
     strftime_format="%Y-%m-%d"
     parameters = {
@@ -176,8 +183,34 @@ def main():
             with col2:
                 estadisticos(efecto_acumulado_total, porcentaje)
 
-
-                
+            df_toci_plot = df_toci.copy()
+            df_toci_plot.reset_index(inplace=True)
+            df_toci_plot.rename(columns={'index': time_var}, inplace=True)
+#             plot_two_df(data_1=results, 
+#                         mean_col_1='preds', 
+#                         data_2=df_toci_plot, 
+#                         mean_col_2='y',
+#                         index_col_1=time_var, 
+#                         index_col_2=time_var,
+#                         eval_date=parameters['beg_eval_period'],
+#                         title='Predicción',
+#                         min_date=parameters['beg_pre_period'])
+#             plot_statistics(results, 
+#                              index_col=time_var, 
+#                              lower_col="point_effects_lower",
+#                              upper_col='point_effects_upper', 
+#                              mean_col='point_effects',
+#                              title='Efecto puntual',
+#                              min_date=parameters['beg_pre_period'],
+#                              eval_date=parameters['beg_eval_period'])
+#             plot_statistics(results, 
+#                              index_col=time_var, 
+#                              lower_col="post_cum_effects_lower",
+#                              upper_col='post_cum_effects_upper', 
+#                              mean_col='post_cum_effects',
+#                              title='Efecto acumulado',
+#                              min_date=parameters['beg_pre_period'],
+#                              eval_date=parameters['beg_eval_period'])
                 
 #             plot_two_series(results_from_r,
 #                            index_col=parameters['time_var'],
@@ -364,7 +397,7 @@ def plotly_time_series(df, time_var, vars_to_plot, beg_pre_period, end_pre_perio
                            ))
 
     fig.update_layout(height=400,
-                      width=950,
+                      width=1200,
                       xaxis_title="",
                       yaxis_title='Value')
 
@@ -592,7 +625,60 @@ def print_column_description(df, time_var, min_date):
         texto('<b> sufijo _lower </b>: Límite inferior del intervalo de la variable.', nfont=11, color='gray')
         texto('<b> sufijo _upper </b>: Límite superior del intervalo de la variable.', nfont=11, color='gray')
 
-    
+def plot_two_df(data_1='results', 
+                mean_col_1='cum.effect',
+                data_2='results',
+                mean_col_2='cum.effect',
+                index_col_1="date", 
+                index_col_2="date",
+                min_date='2019-01-01',
+                eval_date='2020-01-01', 
+                show_legend=False,
+                xaxis_title='Date', 
+                yaxis_title='Value', 
+                title=None,
+                name='Mean effect'):
+    color_lower_upper_marker = "#C7405A"
+    color_fillbetween = 'rgba(88, 44, 51, 0.3)'
+    color_lower_upper_marker = color_fillbetween  # "#C7405A"
+    color_median = red
+    data_toplot = data_1.query(f'{index_col_1} >= "{min_date}"').copy()
+    data_toplot_2 = data_2.query(f'{index_col_2} >= "{min_date}"').copy()
+    fig_list = [
+        go.Scatter(
+            name=name,
+            x=data_toplot[index_col_1],
+            y=data_toplot[mean_col_1],
+            mode='lines',
+            line=dict(color=color_median),
+            showlegend=show_legend,
+        ),
+        go.Scatter(
+            name=name,
+            x=data_toplot_2[index_col_2],
+            y=data_toplot_2[mean_col_2],
+            mode='lines',
+            line=dict(color='black', width=1), #, dash='dash'
+            showlegend=show_legend,
+        ),        
+    ]
+    fig_list = fig_list
+    fig = go.Figure(fig_list)
+    fig.add_vline(x=eval_date, line=dict(color="black",width=1,dash='dash'))
+    fig.add_hline(y=0, line=dict(color="gray",width=0.5,dash='dash'))
+    fig.update_layout(
+        yaxis=dict(title=yaxis_title, showgrid=False),
+        xaxis=dict(title=xaxis_title, showgrid=False),
+        height=400, width=950,
+        title=title,
+        hovermode="x",
+        paper_bgcolor='white',
+        plot_bgcolor='white',
+        hoverlabel_align='right',
+        #margin=dict(l=50, r=50, t=50, b=50)
+    )
+    st.plotly_chart(fig)
+   
 
 
 
