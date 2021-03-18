@@ -86,18 +86,6 @@ def main():
                         default=x_vars)
 
 
-#     st.sidebar.markdown("### Beginning and end pre period")
-#     beg_pre_period, end_pre_period = st.sidebar.slider('', min_date, last_date, 
-#                                                        value=(min_date,
-#                                                        df_experiment.loc[mid_point + 20, time_var].date()),
-#                                                        key='training_period')
-
-#     st.sidebar.markdown("### Beginning and end evaluation period")
-#     beg_eval_period, end_eval_period = st.sidebar.slider('',
-#                                                          end_pre_period, last_date,
-#                                                          value=(df_experiment.loc[mid_point + 26, time_var].date(),
-#                                                          last_date),
-#                                                          key='evaluation_period')
     
     strftime_format="%Y-%m-%d"
     parameters = {
@@ -125,13 +113,16 @@ def main():
                   beg_eval_period=parameters['beg_eval_period'], 
                   end_eval_period=parameters['end_eval_period'],
                   )
-        
-        col_corr, col_mutual = st.beta_columns(2)
-        with col_corr:
-            find_mutual_info(df_experiment, time_var, y_var, parameters['end_pre_period'])            
-        with col_mutual:
-            find_dynamic_time_warp(df_experiment, time_var, y_var, parameters['end_pre_period'])
 
+        col_mutual_info, col_precip, col_tdw = st.beta_columns(3)
+        with col_mutual_info:
+            find_mutual_info(df_experiment, time_var, y_var, parameters['end_pre_period'])            
+        with col_tdw:
+            find_dynamic_time_warp(df_experiment, time_var, y_var, parameters['end_pre_period'])
+        with col_precip:
+            find_mutual_info_precipitaciones(df_experiment, time_var, y_var, parameters['end_pre_period'])
+
+        
         texto(' ')
 
     with st.beta_expander("Estimate Causal Impact model"):
@@ -269,6 +260,7 @@ def load_dataframe() -> pd.DataFrame:
     mapa_nombres = {k : k.replace('PIB_','') for k in df.columns}
     df.rename(columns=mapa_nombres, inplace=True)
     df['Periodo'] = df['Periodo'].apply(lambda x: x.split(' ')[0])
+    df.rename(columns={'Minerales_no_metalicos_y_metalica_basica': 'Minerales_no_metalicos'}, inplace=True)
     
     return df
 
@@ -277,7 +269,7 @@ def find_dynamic_time_warp(df, time_var, y_var, end_training_period):
     
     texto(' ')
     st.markdown('---')
-    texto(f'Dynamic time warp entre variables con {y_var}', 17)
+    texto(f'Dynamic time warp con {y_var}', 17)
     texto('Sugerencia: series con mayor distancia son diferentes entre sí.', 12, 'grey')
     df_filtered = df.query(f'{time_var} <= "{end_training_period}"')
     new_frame = pd.DataFrame(index=[m for m in df.columns if m != time_var and 'scaled' not in m])
@@ -294,7 +286,7 @@ from sklearn.feature_selection import mutual_info_regression
 def find_mutual_info(df, time_var, y_var, end_training_period):
     texto(' ')
     st.markdown('---')
-    texto(f'Información mutua entre variables con {y_var}', 17)
+    texto(f'Información mutua con {y_var}', 17)
     texto('Sugerencia: series con información mutua igual a 0 son independientes.', 12, 'grey')
 
     df_mutualinfo = df.query(f'{time_var} <= "{end_training_period}"')
@@ -308,17 +300,28 @@ def find_mutual_info(df, time_var, y_var, end_training_period):
     st.write(new_frame)
     
     
-def find_correlations(df, time_var, y_var, end_training_period):
-    texto(' ')
-    st.markdown('---')
-    texto(f'Correlaciones entre variables con {y_var}', 17)
-    texto('Sugerencia: series con baja correlación pueden introducir ruido o sesgo en los resultados', 12, 'grey')
-    df_tocorr = df.query(f'{time_var} <= "{end_training_period}"')
-    df_tocorr.drop(columns=[m for m in df.columns if 'scaled' in m], inplace=True)
-    correlaciones_absolutas = df_tocorr.corr().abs()
-    new_var_name =  f'corr abs'
-    correlaciones_absolutas.rename(columns={y_var: new_var_name}, inplace=True)
-    st.dataframe(correlaciones_absolutas.sort_values(new_var_name, ascending=False)[1:][new_var_name])#[y_var])
+    
+def find_mutual_info_precipitaciones(df, time_var, y_var, end_training_period):
+
+    precipitaciones = pd.read_csv('data/precipitaciones.csv')
+    precipitaciones['Periodo'] = precipitaciones['Periodo'].apply(pd.to_datetime)
+#     texto(' ')
+#     st.markdown('---')
+#     texto(f'Información mutua entre variables con precipitaciones', 17)
+#     texto('Sugerencia: series con información mutua igual a 0 son independientes.', 12, 'grey')
+
+    full_frame = df.merge(precipitaciones, on='Periodo')
+    find_mutual_info(full_frame, time_var, 'precipitaciones', end_training_period)
+#     df_mutualinfo = df.query(f'{time_var} <= "{end_training_period}"')
+
+#     df_mutualinfo.drop(columns=[m for m in df.columns if 'scaled' in m], inplace=True)
+#     informacion_mutua = mutual_info_regression(df_mutualinfo[[m for m in df_mutualinfo.columns if time_var not in m]].values, 
+#                                             df_mutualinfo[y_var].values)
+#     new_frame = pd.DataFrame(index = df_mutualinfo[[m for m in df_mutualinfo.columns if time_var not in m]].columns)
+#     new_frame[f'mutual info'] = informacion_mutua
+#     new_frame.sort_values(by='mutual info', inplace=True)
+#     st.write(new_frame)
+    
     
 
 def plot_vars(df_experiment, vars_to_plot, time_var, beg_pre_period=None, end_pre_period=None,
@@ -410,10 +413,9 @@ def plotly_time_series(df, time_var, vars_to_plot, beg_pre_period, end_pre_perio
     #fig.update_xaxes(visible=False, fixedrange=True)
     #fig.update_yaxes(visible=False, fixedrange=True)
     st.plotly_chart(fig)
-    texto('<b>Pre period </b> the model uses this period to learn patterns', nfont=14,
+    texto('<b>Pre period </b> corresponde al período de entrenamiento del modelo, donde aprende a reconstruir la señal y a partir de las series de control', nfont=14,
     color="grey")
-    texto("""<b>Evaluation period </b> the model uses this period to evaluate the 
-    intervention. It doesn't use it for training""", nfont=14,
+    texto("""<b>Evaluation period </b> corresponde al período donde evaluamos el efecto de la intervención, propagando a futuro un escenario contrafactual a partir de las series de control""", nfont=14,
     color="grey")
     texto(' ')
     #return fig
@@ -625,6 +627,7 @@ def print_column_description(df, time_var, min_date):
         texto('<b> sufijo _lower </b>: Límite inferior del intervalo de la variable.', nfont=11, color='gray')
         texto('<b> sufijo _upper </b>: Límite superior del intervalo de la variable.', nfont=11, color='gray')
 
+        
 def plot_two_df(data_1='results', 
                 mean_col_1='cum.effect',
                 data_2='results',
